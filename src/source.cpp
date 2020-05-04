@@ -2,7 +2,14 @@
 #include <iomanip>
 #include <fstream>
 #include <sstream>
+#include "assem_instr.h"
 
+#define ubyte uint8_t
+#define sbyte int8_t
+
+/*
+ * Minimum number of arguments required:
+ */
 static const uint32_t REQ_ARGS = 2;
 
 void usage(const std::string& pr_name) {
@@ -22,26 +29,41 @@ void throwBytes(uint32_t u_Bytes) {
 }
 
 int main(int argc, char** argv) {
+    /*
+     * Input Validation:
+     */
     if (argc < REQ_ARGS) {
         usage(argv[0]);
     }
-    std::ifstream g_Code(argv[1], std::ios_base::binary);
-    g_Code >> std::noskipws;
-    unsigned char s_Str;
+    /*
+     * File System:
+     */
+    std::ifstream g_Code(argv[1], std::ios_base::binary); // open rom in binary mode
+    g_Code >> std::noskipws; // don't skip whitespace
+    /*
+     * Read header bytes:
+     */
+    ubyte s_Str;
     for (int i = 0; i < 3; i++) {
         // read header:
         g_Code >> s_Str;
-        std::cout << s_Str;
     }
-    std::cout << std::endl;
     g_Code.ignore(16 - 3);
+    /*
+     * Main loop:
+     */
     uint32_t u_Instr = 1;
+    // main 6502 registers (8-bit):
+    Regs regs; // PC, SP, ACC, X, Y
     while (u_Instr && !g_Code.eof()) {
         u_Instr++;
-        unsigned char b_Op;
+        ubyte b_Op;
         std::string s_Instr;
         g_Code.read((char*)&b_Op, 1);
         auto ign = [&](const uint32_t& s) { g_Code.ignore(s); };
+        /*
+         * Instructions Opcodes:
+         */
         switch (b_Op) {
             case 0x78: s_Instr = "sei"; ign(0); break;
             case 0xD8: s_Instr = "cld"; ign(0); break;
