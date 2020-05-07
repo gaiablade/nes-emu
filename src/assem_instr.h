@@ -5,11 +5,12 @@
 
 const uint32_t MEM_SIZE = 2048; // 2048 bytes of memory (2 kB)
 
-enum R { PC = 0, SP, ACC, X, Y };
+enum R { SP = 0, ACC, X, Y };
 enum F { CF = 0, ZF, IF, DF, BF, OF, NF };
 
 struct Regs {
-    sbyte reg6502[5]; // PC, SP, ACC, X, Y
+    int16_t PC;
+    sbyte reg6502[4]; // SP, ACC, X, Y
     ubyte flags[7];   // Carry, Zero, Interrupt, Decimal, Break, Overflow, Negative
     sbyte* mem = new sbyte[MEM_SIZE];
     ~Regs() { delete[] this->mem; }
@@ -20,41 +21,41 @@ struct Regs {
  */
 // TODO: Decide on way to separate instructions with modes that share same
 // parameters.
-void sei(Regs& regs);                      // imp
-void cld(Regs& regs);                      // imp
-void dex(Regs& regs);                      // imp
-void lda(Regs& regs, const sbyte& arg);    // imm
-void lda(Regs& regs, const int16_t& data); // abs
-void lda(Regs& regs, const int16_t& addr); // abs,X
-void ldx(Regs& regs, const sbyte& val);    // imm
-void ldy(Regs& regs, const sbyte& val);    // imm
-void sta(Regs& regs, const int16_t& addr); // abs
-void txs(Regs& regs);                      // impl
-void bpl(Regs& regs, const sbyte& offset); // rel
-void bcs(Regs& regs, const sbyte& offset); // rel
-void bne(Regs& regs, const sbyte& offset); // rel
-void cmp(Regs& regs, const sbyte& val);    // imm
-void cpx(Regs& regs, const int16_t& addr); // abs
-void jsr(Regs& regs, const int16_t& addr); // abs
-void jmp(Regs& regs, const int16_t& addr); // abs
-void inc(Regs& regs, const int16_t& addr); // abs
-void iny(Regs& regs);                      // imp
-void ora(Regs& regs, const sbyte& val);    // imm
-void ora(Regs& regs, const sbyte& val);    // (ind,X)
-void eor(Regs& regs, const sbyte& val);    // (ind,X)
-void nop(Regs& regs);                      // imp
+void sei_imp(Regs& regs);                      // imp
+void cld_imp(Regs& regs);                      // imp
+void dex_imp(Regs& regs);                      // imp
+void lda_imm(Regs& regs, const sbyte& arg);    // imm
+void lda_abs(Regs& regs, const int16_t& data); // abs
+void lda_absX(Regs& regs, const int16_t& addr); // abs,X
+void ldx_imm(Regs& regs, const sbyte& val);    // imm
+void ldy_imm(Regs& regs, const sbyte& val);    // imm
+void sta_abs(Regs& regs, const int16_t& addr); // abs
+void txs_imp(Regs& regs);                      // impl
+void bpl_rel(Regs& regs, const sbyte& offset); // rel
+void bcs_rel(Regs& regs, const sbyte& offset); // rel
+void bne_rel(Regs& regs, const sbyte& offset); // rel
+void cmp_imm(Regs& regs, const sbyte& val);    // imm
+void cpx_abs(Regs& regs, const int16_t& addr); // abs
+void jsr_abs(Regs& regs, const int16_t& addr); // abs
+void jmp_abs(Regs& regs, const int16_t& addr); // abs
+void inc_abs(Regs& regs, const int16_t& addr); // abs
+void iny_imp(Regs& regs);                      // imp
+void ora_imm(Regs& regs, const sbyte& val);    // imm
+void ora_indX(Regs& regs, const sbyte& val);    // (ind,X)
+void eor_indX(Regs& regs, const sbyte& val);    // (ind,X)
+void nop_imp(Regs& regs);                      // imp
 
 /*
  * Set interrupt Disable Status
  */
-void sei(Regs& regs) {
+void sei_imp(Regs& regs) {
     regs.flags[2] = 1;
 }
 
 /*
  * Clear Decimal Mode
  */
-void cld(Regs& regs) {
+void cld_imp(Regs& regs) {
     regs.flags[3] = 0;
 }
 
@@ -62,7 +63,7 @@ void cld(Regs& regs) {
  * Decrement X Register
  * $CA: Implied
  */
-void dex(Regs& regs) {
+void dex_imp(Regs& regs) {
     regs.reg6502[R::X] += 1;
 }
 
@@ -71,19 +72,19 @@ void dex(Regs& regs) {
  * $A9: Immediate
  * Load argument value into the ACC register
  */
-void lda(Regs& regs, const sbyte& arg) {
+void lda_imm(Regs& regs, const sbyte& arg) {
     regs.reg6502[2] = arg;
 }
 /*
  * $AD: Absolute
  */
-void lda(Regs& regs, const int16_t& data) {
+void lda_abs(Regs& regs, const int16_t& data) {
     regs.reg6502[R::ACC] = data;
 }
 /*
  * $BD: Absolute, X
  */
-void lda(Regs& regs, const int16_t& addr) {
+void lda_absX(Regs& regs, const int16_t& addr) {
     regs.reg6502[R::ACC] = regs.mem[addr + regs.reg6502[R::X]];
 }
 
@@ -91,7 +92,7 @@ void lda(Regs& regs, const int16_t& addr) {
  * Load X Register
  * $A2: Immediate
  */
-void ldx(Regs& regs, const sbyte& val) {
+void ldx_imm(Regs& regs, const sbyte& val) {
     regs.reg6502[3] = val;
     if (!val)         regs.flags[F::ZF] = 1;
     else if (val < 0) regs.flags[F::NF] = 1;
@@ -101,7 +102,7 @@ void ldx(Regs& regs, const sbyte& val) {
  * Load Y Register
  * $A0: Immediate
  */
-void ldy(Regs& regs, const sbyte& val) {
+void ldy_imm(Regs& regs, const sbyte& val) {
     regs.reg6502[R::Y] = val;
     if (!val)         regs.flags[F::ZF] = 1;
     else if (val < 0) regs.flags[F::NF] = 1;
@@ -111,7 +112,7 @@ void ldy(Regs& regs, const sbyte& val) {
  * Store Accumulator
  * $8D: Absolute
  */
-void sta(Regs& regs, const int16_t& addr) {
+void sta_abs(Regs& regs, const int16_t& addr) {
     // store content in acc into memory at address
     //regs.memory[addr] = regs.reg6502[2];
     regs.mem[addr] = regs.reg6502[2];
@@ -121,7 +122,7 @@ void sta(Regs& regs, const int16_t& addr) {
  * Transfer X to Stack Pointer
  * $9A: Implied
  */
-void txs(Regs& regs) {
+void txs_imp(Regs& regs) {
     regs.reg6502[R::SP] = regs.reg6502[R::X];
 }
 
@@ -130,27 +131,27 @@ void txs(Regs& regs) {
  * $10: Relative
  * If the negative flag is clear then add the relative displacement to the program counter to cause a branch to a new location.
  */
-void bpl(Regs& regs, const sbyte& offset) {
+void bpl_rel(Regs& regs, const sbyte& offset) {
     if (!regs.flags[F::NF])
-        regs.reg6502[R::PC] += offset;
+        regs.PC += offset;
 }
 
 /*
  * Branch if Carry Set
  * $B0: Relative
  */
-void bcs(Regs& regs, const sbyte& offset) {
+void bcs_rel(Regs& regs, const sbyte& offset) {
     if (regs.flags[F::CF])
-        regs.reg6502[R::PC] += offset;
+        regs.PC += offset;
 }
 
 /*
  * Branch if Not Equal
  * $D0: Relative
  */
-void bne(Regs& regs, const sbyte& offset) {
+void bne_rel(Regs& regs, const sbyte& offset) {
     if (!regs.flags[F::ZF]) {
-        regs.reg6502[R::PC] += offset;
+        regs.PC += offset;
     }
 }
 
@@ -158,7 +159,7 @@ void bne(Regs& regs, const sbyte& offset) {
  * Compare
  * $C9: Immediate
  */
-void cmp(Regs& regs, const sbyte& val) {
+void cmp_imm(Regs& regs, const sbyte& val) {
     sbyte diff = regs.reg6502[R::ACC] - val;
     if (!diff) {
         regs.flags[F::ZF] = 1;
@@ -179,7 +180,7 @@ void cmp(Regs& regs, const sbyte& val) {
  * $EC: Absolute
  * Updates: Z, C, N
  */
-void cpx(Regs& regs, const int16_t& addr) {
+void cpx_abs(Regs& regs, const int16_t& addr) {
     sbyte diff = regs.reg6502[R::X] - regs.mem[addr];
     if (!diff) {
         regs.flags[F::ZF] = 1;
@@ -199,23 +200,23 @@ void cpx(Regs& regs, const int16_t& addr) {
  * Jump to Subroutine
  * $20: Absolute
  */
-void jsr(Regs& regs, const int16_t& addr) {
-    regs.reg6502[R::PC] = addr;
+void jsr_abs(Regs& regs, const int16_t& addr) {
+    regs.PC = addr;
 }
 
 /*
  * Jump
  * $4C: Absolute
  */
-void jmp(Regs& regs, const int16_t& addr) {
-    regs.reg6502[R::PC]
+void jmp_abs(Regs& regs, const int16_t& addr) {
+    regs.PC = addr;
 }
 
 /*
  * Increment Memory
  * $EE: Absolute
  */
-void inc(Regs& regs, const int16_t& addr) {
+void inc_abs(Regs& regs, const int16_t& addr) {
     regs.mem[addr] += 1;
 }
 
@@ -223,7 +224,7 @@ void inc(Regs& regs, const int16_t& addr) {
  * Increment Y
  * $C8: Implied
  */
-void iny(Regs& regs) {
+void iny_imp(Regs& regs) {
     regs.reg6502[R::Y] += 1;
 }
 
@@ -231,7 +232,7 @@ void iny(Regs& regs) {
  * Logical Inclusive OR
  * $09: Immediate
  */
-void ora(Regs& regs, const sbyte& val) {
+void ora_imm(Regs& regs, const sbyte& val) {
     regs.reg6502[R::ACC] |= val;
 }
 
@@ -239,7 +240,7 @@ void ora(Regs& regs, const sbyte& val) {
  * Logical Inclusive OR
  * $01: (Indirect, X)
  */
-void ora(Regs& regs, const sbyte& val) {
+void ora_indX(Regs& regs, const sbyte& val) {
     const int16_t i16_TargetAddr = regs.mem[regs.reg6502[R::X] + val];
     const sbyte b_LoadVal = regs.mem[i16_TargetAddr];
     regs.reg6502[R::ACC] |= b_LoadVal;
@@ -250,11 +251,11 @@ void ora(Regs& regs, const sbyte& val) {
  * $41: (Indirect, X)
  * Updates: Z, N
  */
-void eor(Regs& regs, const sbyte& val) {
+void eor_indX(Regs& regs, const sbyte& val) {
     const int16_t i16_TargetAddr = regs.mem[regs.reg6502[R::X] + val];
     const sbyte b_LoadVal = regs.mem[i16_TargetAddr];
     regs.reg6502[R::ACC] ^= b_LoadVal;
-    if (!regs.reg6502[R::AC])
+    if (!regs.reg6502[R::ACC])
         regs.flags[F::ZF] = 1;
     else if (regs.reg6502[R::ACC] >> 7)
         regs.flags[F::NF] = 1;
@@ -264,6 +265,38 @@ void eor(Regs& regs, const sbyte& val) {
  * No Operation
  * $44: ??? (NES-exclusive)
  */
-void nop(Regs& regs) {
+void nop_imp(Regs& regs) {
     // Waste 3 cycles
 }
+
+/*
+ * Appendix
+ * ----------------------------------------
+ *  I. Addressing Modes
+ *      1. Implicit/Implied (Imp)
+ *          - SEI
+ *      2. Accumulator (Acc)
+ *          - LSR A
+ *      3. Immediate (Imm)
+ *          - LDA #10
+ *      4. Zero Page (ZP)
+ *          - LDA #00
+ *      5. Zero Page, X (ZP,X)
+ *          - STY $10, X
+ *      6. Zero Page, Y (ZP,Y)
+ *          - LDX $10, Y
+ *      7. Relative (Rel)
+ *          - BEQ LABEL
+ *      8. Absolute (Abs)
+ *          - JMP #1234
+ *      9. Absolute, X (Abs,X)
+ *          - STA #3000,X
+ *      10. Absolute, Y (Abs,Y)
+ *          - AND #4000, Y
+ *      11. Indirect (Ind)
+ *          - JMP (#FFFC)
+ *      12. Indexed Indirect (Ind,X)
+ *          - LDA (#40,X)
+ *      13. Indirect Indexed (Ind,Y)
+ *          - LDA ($40),Y
+ */
