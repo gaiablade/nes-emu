@@ -13,6 +13,9 @@ struct Regs {
     sbyte reg6502[4]; // SP, ACC, X, Y
     ubyte flags[7];   // Carry, Zero, Interrupt, Decimal, Break, Overflow, Negative
     sbyte* mem = new sbyte[MEM_SIZE];
+    Regs() {
+        this->reg6502[R::SP] = 0xFF;
+    }
     ~Regs() { delete[] this->mem; }
 };
 
@@ -21,29 +24,38 @@ struct Regs {
  */
 // TODO: Decide on way to separate instructions with modes that share same
 // parameters.
-void sei_imp(Regs& regs);                      // imp
-void cld_imp(Regs& regs);                      // imp
-void dex_imp(Regs& regs);                      // imp
-void lda_imm(Regs& regs, const sbyte& arg);    // imm
-void lda_abs(Regs& regs, const int16_t& data); // abs
+void sei_imp(Regs& regs);                       // imp
+void cld_imp(Regs& regs);                       // imp
+void dec_absX(Regs& regs, const int16_t& addr); // abs,X
+void dex_imp(Regs& regs);                       // imp
+void lda_imm(Regs& regs, const sbyte& arg);     // imm
+void lda_abs(Regs& regs, const int16_t& data);  // abs
 void lda_absX(Regs& regs, const int16_t& addr); // abs,X
-void ldx_imm(Regs& regs, const sbyte& val);    // imm
-void ldy_imm(Regs& regs, const sbyte& val);    // imm
-void sta_abs(Regs& regs, const int16_t& addr); // abs
-void txs_imp(Regs& regs);                      // impl
-void bpl_rel(Regs& regs, const sbyte& offset); // rel
-void bcs_rel(Regs& regs, const sbyte& offset); // rel
-void bne_rel(Regs& regs, const sbyte& offset); // rel
-void cmp_imm(Regs& regs, const sbyte& val);    // imm
-void cpx_abs(Regs& regs, const int16_t& addr); // abs
-void jsr_abs(Regs& regs, const int16_t& addr); // abs
-void jmp_abs(Regs& regs, const int16_t& addr); // abs
-void inc_abs(Regs& regs, const int16_t& addr); // abs
-void iny_imp(Regs& regs);                      // imp
-void ora_imm(Regs& regs, const sbyte& val);    // imm
+void ldx_imm(Regs& regs, const sbyte& val);     // imm
+void ldx_abs(Regs& regs, const int16_t& addr);  // abs
+void ldy_imm(Regs& regs, const sbyte& val);     // imm
+void ldy_abs(Regs& regs, const uint16_t& addr); // abs
+void sta_abs(Regs& regs, const int16_t& addr);  // abs
+void sta_zp(Regs& regs, const sbyte& val);      // zp
+void sty_abs(Regs& regs, const int16_t& addr);  // abs
+void txs_imp(Regs& regs);                       // impl
+void bpl_rel(Regs& regs, const sbyte& offset);  // rel
+void bcs_rel(Regs& regs, const sbyte& offset);  // rel
+void bne_rel(Regs& regs, const sbyte& offset);  // rel
+void cmp_imm(Regs& regs, const sbyte& val);     // imm
+void cpx_abs(Regs& regs, const int16_t& addr);  // abs
+void jsr_abs(Regs& regs, const int16_t& addr);  // abs
+void jmp_abs(Regs& regs, const int16_t& addr);  // abs
+void inc_abs(Regs& regs, const int16_t& addr);  // abs
+void iny_imp(Regs& regs);                       // imp
+void and_imm(Regs& regs, const sbyte& val):     // imm
+void ora_imm(Regs& regs, const sbyte& val);     // imm
 void ora_indX(Regs& regs, const sbyte& val);    // (ind,X)
 void eor_indX(Regs& regs, const sbyte& val);    // (ind,X)
-void nop_imp(Regs& regs);                      // imp
+void pla_imp(Regs& regs);                       // imp
+void slo_indX(Regs& regs, const sbyte& val);    // (ind,X)
+void nop_3(Regs& regs);
+void nop_45(Regs& regs);
 
 /*
  * Set interrupt Disable Status
@@ -60,6 +72,14 @@ void cld_imp(Regs& regs) {
 }
 
 /*
+ * Decrement Memory
+ * $DE: Absolute,X
+ */
+void dec_absX(Regs& regs, const int16_t& addr) {
+    regs.mem[reg6502[R::X] + addr] += 1;
+}
+
+/*
  * Decrement X Register
  * $CA: Implied
  */
@@ -73,7 +93,7 @@ void dex_imp(Regs& regs) {
  * Load argument value into the ACC register
  */
 void lda_imm(Regs& regs, const sbyte& arg) {
-    regs.reg6502[2] = arg;
+    regs.reg6502[R::ACC] = arg;
 }
 /*
  * $AD: Absolute
@@ -93,9 +113,15 @@ void lda_absX(Regs& regs, const int16_t& addr) {
  * $A2: Immediate
  */
 void ldx_imm(Regs& regs, const sbyte& val) {
-    regs.reg6502[3] = val;
+    regs.reg6502[R::X] = val;
     if (!val)         regs.flags[F::ZF] = 1;
     else if (val < 0) regs.flags[F::NF] = 1;
+}
+/*
+ * $AE: Absolute
+ */
+void ldx_abs(Regs& regs, const int16_t& addr) {
+    regs.reg6502[R::Y] = regs.mem[addr];
 }
 
 /*
@@ -107,6 +133,12 @@ void ldy_imm(Regs& regs, const sbyte& val) {
     if (!val)         regs.flags[F::ZF] = 1;
     else if (val < 0) regs.flags[F::NF] = 1;
 }
+/*
+ * $AC: Absolute
+ */
+void ldy_abs(Regs& regs, const uint16_t& addr) {
+    regs.reg6502[R::Y] = regs.mem[addr];
+}
 
 /*
  * Store Accumulator
@@ -114,8 +146,21 @@ void ldy_imm(Regs& regs, const sbyte& val) {
  */
 void sta_abs(Regs& regs, const int16_t& addr) {
     // store content in acc into memory at address
-    //regs.memory[addr] = regs.reg6502[2];
-    regs.mem[addr] = regs.reg6502[2];
+    regs.mem[addr] = regs.reg6502[R::ACC];
+}
+/*
+ * $85: Zero Page
+ */
+void sta_zp(Regs& regs, const sbyte& val) {
+    regs.mem[val] = regs.reg6502[R::ACC];
+}
+
+/*
+ * Store Y Register
+ * $8C: Absolute
+ */
+void sty_abs(Regs& regs, const int16_t& addr) {
+    regs.mem[addr] = regs.reg6502[R::Y];
 }
 
 /*
@@ -229,6 +274,14 @@ void iny_imp(Regs& regs) {
 }
 
 /*
+ * Logical AND
+ * $29: Immediate
+ */
+void and_imm(Regs& regs, const sbyte& val) {
+    regs.reg6502[R::ACC] &= val;
+}
+
+/*
  * Logical Inclusive OR
  * $09: Immediate
  */
@@ -262,11 +315,34 @@ void eor_indX(Regs& regs, const sbyte& val) {
 }
 
 /*
+ * Pull Accumulator From Stack (Pop)
+ * $68: Implied
+ */
+void pla_imp(Regs& regs) {
+    regs.reg6502[R::ACC] = regs.mem[0x0100 & regs.reg6502[R::SP]];
+    regs.reg6502[R::SP] -= 1;
+}
+
+/*
+ * Equivalent to ASL value then ORA value.
+ * $03: Indexed Indirect (Ind, X)
+ */
+void slo_indX(Regs& regs, const sbyte& val) {
+    const ubyte addr = val + regs.reg6502[R::X];
+    regs.mem[addr] *= 2;
+    regs.mem[addr] |= regs.reg6502[R::ACC];
+}
+
+/*
  * No Operation
  * $44: ??? (NES-exclusive)
+ * $7C: ??? (NES-exclusive)
  */
-void nop_imp(Regs& regs) {
+void nop_3(Regs& regs) {
     // Waste 3 cycles
+}
+void nop_45(Regs& regs) {
+    // Waste 4 or 5 cycles
 }
 
 /*
@@ -299,4 +375,8 @@ void nop_imp(Regs& regs) {
  *          - LDA (#40,X)
  *      13. Indirect Indexed (Ind,Y)
  *          - LDA ($40),Y
+ *
+ *      Note: Indexed Indirect and Indirect Indexed instructions will
+ *          access addresses in the zeropage range since they take an
+ *          8-bit address instead of a 16-bit address.
  */
